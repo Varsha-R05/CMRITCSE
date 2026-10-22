@@ -21,12 +21,12 @@ app.get("/", (req, res) => {
   });
 });
 
-// Middleware
+
 app.use(cors({
   origin: (origin, callback) => {
     const configuredOrigins = (process.env.CLIENT_URL || "")
       .split(",")
-      .map((value) => value.trim())
+      .map(value => value.trim())
       .filter(Boolean);
 
     const allowedOrigins = new Set([
@@ -39,9 +39,13 @@ app.use(cors({
       return callback(null, true);
     }
 
+    console.error("CORS blocked origin:", origin);
     return callback(new Error("Origin is not allowed by CORS"));
-  }
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
 app.use(express.json());
 
 
