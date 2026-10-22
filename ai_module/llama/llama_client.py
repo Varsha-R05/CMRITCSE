@@ -1,13 +1,19 @@
-import ollama
+
+import os
 import time
 from typing import Optional
 
+import ollama
 
-MODEL_NAME = "llama3.2:3b"
+MODEL_NAME = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
 
-# Connect to Ollama running on the Windows host
-OLLAMA_HOST = "http://host.docker.internal:11434"
-ollama_client = ollama.Client(host=OLLAMA_HOST)
+ollama_client = ollama.Client(
+    host="https://ollama.com",
+    headers={
+        "Authorization": f"Bearer {OLLAMA_API_KEY}"
+    },
+)
 
 
 def ask_llama(
@@ -22,20 +28,14 @@ def ask_llama(
         chat_options = {
             "model": MODEL_NAME,
             "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt}
             ],
             "options": {
                 "temperature": temperature,
                 "top_p": 0.9,
                 "num_predict": max_tokens,
                 "num_ctx": 4096,
-                "num_batch": 512,
-                "num_thread": 6,
             },
-            "keep_alive": "30m",
         }
 
         if response_format:
@@ -45,31 +45,13 @@ def ask_llama(
 
         total_time = time.perf_counter() - start_time
 
-        print("\n========== OLLAMA METRICS ==========")
-        print(
-            "Load duration:",
-            round(response.get("load_duration", 0) / 1_000_000_000, 2),
-            "seconds"
-        )
-        print(
-            "Prompt eval duration:",
-            round(response.get("prompt_eval_duration", 0) / 1_000_000_000, 2),
-            "seconds"
-        )
-        print(
-            "Generation duration:",
-            round(response.get("eval_duration", 0) / 1_000_000_000, 2),
-            "seconds"
-        )
+        print("Ollama Cloud request duration:",
+              round(total_time, 2), "seconds")
         print("Prompt tokens:", response.get("prompt_eval_count", 0))
         print("Generated tokens:", response.get("eval_count", 0))
-        print("Python request duration:", round(total_time, 2), "seconds")
-        print("====================================\n")
 
         return response["message"]["content"]
 
     except Exception as error:
-        print("\n========== OLLAMA ERROR ==========")
-        print("Error:", str(error))
-        print("==================================\n")
+        print("OLLAMA CLOUD ERROR:", str(error))
         return None
