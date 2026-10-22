@@ -1,36 +1,12 @@
-from fastapi import FastAPI, HTTPException ,UploadFile,File
+
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import traceback
-from vtu_question_generator import generate_vtu_question
-from resume.semantic_matcher import calculate_rag_semantic_match
-from resume.resume_parser import parse_resume
-from resume.ats_analyzer import analyze_ats
-from resume.skill_extractor import compare_skills
-from resume.experience_analyzer import analyze_experience
-from resume.project_analyzer import analyze_projects
-from resume.achievement_analyzer import analyze_achievements
-from resume.feedback_generator import generate_feedback
-from resume.job_description_generator import generate_job_description
-
-from interview.question_generator import generate_question
-from interview.interview_feedback import generate_interview_report
-
-from answer_evaluation import evaluate_answer
 import os
 import tempfile
-from audio_transcription import transcribe_audio
-
-from topic_analysis import (
-    analyze_topics,
-    calculate_topic_performance,
-    rank_topics,
-    classify_topics
-)
-
-from pagerank import pagerank_topics
 
 
 # =========================================================
@@ -86,10 +62,12 @@ class ResumeRequest(BaseModel):
 class JobDescriptionRequest(BaseModel):
     role: str
 
+
 class VTUQuestionRequest(BaseModel):
     subject: str
     module: str
     topic: str
+
 
 class QuestionGenerationRequest(BaseModel):
     role: str
@@ -97,8 +75,6 @@ class QuestionGenerationRequest(BaseModel):
     topic: str
     question_type: str = "Technical"
     category: str = "Conceptual"
-
-    # Avoid mutable default list
     history: List[dict] = Field(default_factory=list)
 
 
@@ -107,7 +83,6 @@ class AdaptiveQuestionRequest(BaseModel):
     company: str = "General"
     question_type: str = "Technical"
     category: str = "Conceptual"
-
     questions: List[Question]
     user_answers: List[str]
     scores: List[float]
@@ -121,8 +96,6 @@ class InterviewEvaluationItem(BaseModel):
     question: str
     student_answer: str
     topic: str = "General"
-
-    # Scores obtained from /evaluate
     llm_score: float
     smith_waterman_score: float
     final_score: float
@@ -151,9 +124,9 @@ def home():
 
 @app.post("/evaluate")
 def evaluate(req: AnswerRequest):
+    from answer_evaluation import evaluate_answer
 
     try:
-
         result = evaluate_answer(
             req.student_answer,
             question=req.question,
@@ -171,7 +144,6 @@ def evaluate(req: AnswerRequest):
         }
 
     except Exception:
-
         logging.error(traceback.format_exc())
 
         return {
@@ -185,14 +157,11 @@ def evaluate(req: AnswerRequest):
 # =========================================================
 
 @app.post("/evaluate-interview")
-def evaluate_interview(
-    req: FinalInterviewEvaluationRequest
-):
+def evaluate_interview(req: FinalInterviewEvaluationRequest):
+    from interview.interview_feedback import generate_interview_report
 
     try:
-
         if not req.answers:
-
             return {
                 "success": False,
                 "error": "No answers provided"
@@ -203,29 +172,17 @@ def evaluate_interview(
             f"{len(req.answers)} answers"
         )
 
-        # =================================================
-        # PREPARE QUESTIONS
-        # =================================================
-
         questions = []
 
         for item in req.answers:
-
             questions.append({
                 "question": item.question,
                 "topic": item.topic
             })
 
-        # =================================================
-        # USE SCORES ALREADY CALCULATED BY /evaluate
-        # =================================================
-
         evaluations = []
 
         for item in req.answers:
-
-            # Safety: keep scores between 0 and 100
-
             llm_score = max(
                 0,
                 min(float(item.llm_score), 100)
@@ -242,80 +199,32 @@ def evaluate_interview(
             )
 
             evaluations.append({
-
-                "question":
-                    item.question,
-
-                "student_answer":
-                    item.student_answer,
-
-                "topic":
-                    item.topic,
-
-                "llm_score":
-                    round(
-                        llm_score,
-                        2
-                    ),
-
-                "smith_waterman_score":
-                    round(
-                        smith_waterman_score,
-                        2
-                    ),
-
-                "final_score":
-                    round(
-                        final_score,
-                        2
-                    )
+                "question": item.question,
+                "student_answer": item.student_answer,
+                "topic": item.topic,
+                "llm_score": round(llm_score, 2),
+                "smith_waterman_score": round(
+                    smith_waterman_score, 2
+                ),
+                "final_score": round(final_score, 2)
             })
 
-        # =================================================
-        # GENERATE FINAL INTERVIEW REPORT
-        # =================================================
-        #
-        # IMPORTANT:
-        # This does NOT call evaluate_answer().
-        #
-        # It uses the scores already calculated by /evaluate
-        # and generates ONE detailed overall feedback report.
-        #
-
         report = generate_interview_report(
-
             role=req.role,
-
             company=req.company,
-
             questions=questions,
-
             evaluations=evaluations
-
         )
-
-        # =================================================
-        # RETURN FINAL REPORT
-        # =================================================
 
         return report
 
-    except Exception as e:
-
-        logging.error(
-            traceback.format_exc()
-        )
+    except Exception:
+        logging.error(traceback.format_exc())
 
         return {
-
             "success": False,
-
-            "error":
-                str(e),
-
-            "message":
-                "Final interview evaluation failed"
-
+            "error": str(traceback.format_exc()),
+            "message": "Final interview evaluation failed"
         }
 
 
@@ -324,26 +233,24 @@ def evaluate_interview(
 # =========================================================
 
 @app.post("/analyze-topics")
-def analyze(
-    req: TopicAnalysisRequest
-):
+def analyze(req: TopicAnalysisRequest):
+    from topic_analysis import (
+        analyze_topics,
+        calculate_topic_performance,
+        rank_topics,
+        classify_topics
+    )
+    from pagerank import pagerank_topics
 
     try:
-
-        if len(req.questions) != len(
-            req.user_answers
-        ):
-
+        if len(req.questions) != len(req.user_answers):
             return {
-                "error":
-                    "Mismatch in questions and answers"
+                "error": "Mismatch in questions and answers"
             }
 
         if not req.questions:
-
             return {
-                "error":
-                    "No questions provided"
+                "error": "No questions provided"
             }
 
         questions = [
@@ -351,68 +258,33 @@ def analyze(
             for q in req.questions
         ]
 
-        topic_scores = analyze_topics(
-            questions
-        )
+        topic_scores = analyze_topics(questions)
 
         topic_avg = calculate_topic_performance(
             topic_scores
         )
 
-        ranked = rank_topics(
-            topic_avg
-        )
-
-        classified = classify_topics(
-            topic_avg
-        )
-
-        pagerank_scores = pagerank_topics(
-            topic_avg
-        )
+        ranked = rank_topics(topic_avg)
+        classified = classify_topics(topic_avg)
+        pagerank_scores = pagerank_topics(topic_avg)
 
         return {
-
-            "topic_scores":
-                topic_scores,
-
-            "topic_average":
-                topic_avg,
-
-            "topic_performance":
-                topic_avg,
-
-            "ranking":
-                ranked,
-
-            "ranked_topics":
-                ranked,
-
-            "classification":
-                classified,
-
-            "classifications":
-                classified,
-
-            "pagerank":
-                pagerank_scores
-
+            "topic_scores": topic_scores,
+            "topic_average": topic_avg,
+            "topic_performance": topic_avg,
+            "ranking": ranked,
+            "ranked_topics": ranked,
+            "classification": classified,
+            "classifications": classified,
+            "pagerank": pagerank_scores
         }
 
-    except Exception as e:
-
-        logging.error(
-            traceback.format_exc()
-        )
+    except Exception:
+        logging.error(traceback.format_exc())
 
         return {
-
-            "error":
-                str(e),
-
-            "message":
-                "Topic analysis failed"
-
+            "error": str(traceback.format_exc()),
+            "message": "Topic analysis failed"
         }
 
 
@@ -421,133 +293,83 @@ def analyze(
 # =========================================================
 
 @app.post("/analyze-resume")
-async def analyze_resume(
-    req: ResumeRequest
-):
+async def analyze_resume(req: ResumeRequest):
+    from resume.semantic_matcher import calculate_rag_semantic_match
+    from resume.resume_parser import parse_resume
+    from resume.ats_analyzer import analyze_ats
+    from resume.skill_extractor import compare_skills
+    from resume.experience_analyzer import analyze_experience
+    from resume.project_analyzer import analyze_projects
+    from resume.achievement_analyzer import analyze_achievements
+    from resume.feedback_generator import generate_feedback
 
     try:
-
-        text = (
-            req.text or ""
-        ).strip()
-
-        role = (
-            req.role or ""
-        ).strip()
-
-        jd = (
-            req.job_description or ""
-        ).strip()
+        text = (req.text or "").strip()
+        role = (req.role or "").strip()
+        jd = (req.job_description or "").strip()
 
         if not text:
-
             return {
-
                 "overall_score": 0,
-
-                "error":
-                    "Resume text is empty."
-
+                "error": "Resume text is empty."
             }
 
-        parsed_resume = parse_resume(
-            text
-        )
-
-        ats_result = analyze_ats(
-            parsed_resume
-        )
+        parsed_resume = parse_resume(text)
+        ats_result = analyze_ats(parsed_resume)
 
         skill_result = compare_skills(
             text,
             jd if jd else role
         )
 
-        experience_result = analyze_experience(
-            text
-        )
+        experience_result = analyze_experience(text)
+        project_result = analyze_projects(text)
+        achievement_result = analyze_achievements(text)
 
-        project_result = analyze_projects(
-            text
-        )
-
-        achievement_result = analyze_achievements(
-            text
-        )
-
-        semantic_score = (
-            calculate_rag_semantic_match(
-                text,
-                role,
-                jd
-            )
+        semantic_score = calculate_rag_semantic_match(
+            text,
+            role,
+            jd
         )
 
         report = generate_feedback(
-
             semantic_score,
-
             ats_result,
-
             skill_result,
-
             experience_result,
-
             project_result,
-
             achievement_result
-
         )
 
         return {
-
-            "role":
-                role,
-
-            "evaluation_mode":
-                "AI Resume Analyzer v2",
-
-            "report":
-                report,
-
-            "ats_analysis":
-                ats_result,
-
-            "skill_analysis":
-                skill_result,
-
-            "experience_analysis":
-                experience_result,
-
-            "project_analysis":
-                project_result,
-
-            "achievement_analysis":
-                achievement_result
-
+            "role": role,
+            "evaluation_mode": "AI Resume Analyzer v2",
+            "report": report,
+            "ats_analysis": ats_result,
+            "skill_analysis": skill_result,
+            "experience_analysis": experience_result,
+            "project_analysis": project_result,
+            "achievement_analysis": achievement_result
         }
 
-
-    except Exception as e:
-
-        logging.error(
-            traceback.format_exc()
-        )
+    except Exception:
+        logging.error(traceback.format_exc())
 
         return {
-
             "overall_score": 0,
-
-            "error":
-                str(e),
-
-            "message":
-                "Resume analysis failed."
-
+            "error": str(traceback.format_exc()),
+            "message": "Resume analysis failed."
         }
+
+
+# =========================================================
+# GENERATE VTU QUESTION
+# =========================================================
 
 @app.post("/generate-vtu-question")
 def generate_vtu_exam_question(req: VTUQuestionRequest):
+    from vtu_question_generator import generate_vtu_question
+
     try:
         result = generate_vtu_question(
             subject=req.subject,
@@ -563,8 +385,14 @@ def generate_vtu_exam_question(req: VTUQuestionRequest):
             detail="Failed to generate VTU question."
         )
 
+
+# =========================================================
+# GENERATE JOB DESCRIPTION
+# =========================================================
+
 @app.post("/generate-job-description")
 def generate_job_description_endpoint(req: JobDescriptionRequest):
+    from resume.job_description_generator import generate_job_description
 
     role = (req.role or "").strip()
 
@@ -577,8 +405,13 @@ def generate_job_description_endpoint(req: JobDescriptionRequest):
     try:
         job_description = generate_job_description(role)
 
-        if not isinstance(job_description, str) or not job_description.strip():
-            raise ValueError("The AI service returned an invalid job description")
+        if (
+            not isinstance(job_description, str)
+            or not job_description.strip()
+        ):
+            raise ValueError(
+                "The AI service returned an invalid job description"
+            )
 
         return {
             "success": True,
@@ -588,6 +421,7 @@ def generate_job_description_endpoint(req: JobDescriptionRequest):
 
     except HTTPException:
         raise
+
     except Exception as error:
         logging.error(
             "Job description generation failed: %s",
@@ -605,9 +439,9 @@ def generate_job_description_endpoint(req: JobDescriptionRequest):
 # =========================================================
 
 @app.post("/generate-question")
-def generate_interview_question(
-    req: QuestionGenerationRequest
-):
+def generate_interview_question(req: QuestionGenerationRequest):
+    from interview.question_generator import generate_question
+
     try:
         result = generate_question(
             role=req.role,
@@ -618,30 +452,19 @@ def generate_interview_question(
             category=req.category
         )
 
-        # Return the generated question object directly.
-        # Do NOT wrap it inside another "question" property.
         return {
             "question": result.get("question", ""),
             "expected_answer": result.get(
-                "expected_answer",
-                ""
+                "expected_answer", ""
             ),
             "difficulty": result.get(
-                "difficulty",
-                "Medium"
+                "difficulty", "Medium"
             ),
-            "topic": result.get(
-                "topic",
-                req.topic
-            ),
+            "topic": result.get("topic", req.topic),
             "company": result.get(
-                "company",
-                req.company or "General"
+                "company", req.company or "General"
             ),
-            "role": result.get(
-                "role",
-                req.role
-            ),
+            "role": result.get("role", req.role),
             "question_type": req.question_type,
             "category": req.category
         }
@@ -660,14 +483,17 @@ def generate_interview_question(
 # =========================================================
 # NEXT ADAPTIVE QUESTION
 # =========================================================
+
 @app.post("/next-question")
 def next_question(req: AdaptiveQuestionRequest):
+    from interview.question_generator import generate_question
+    from topic_analysis import (
+        analyze_topics,
+        calculate_topic_performance
+    )
+    from pagerank import pagerank_topics
+
     try:
-
-        # =================================================
-        # VALIDATION
-        # =================================================
-
         if not req.questions:
             raise HTTPException(
                 status_code=400,
@@ -686,10 +512,6 @@ def next_question(req: AdaptiveQuestionRequest):
                 detail="Mismatch between questions and scores"
             )
 
-        # =================================================
-        # BUILD HISTORY WITH ACTUAL EVALUATION SCORES
-        # =================================================
-
         history = []
 
         for question, user_answer, score in zip(
@@ -704,15 +526,9 @@ def next_question(req: AdaptiveQuestionRequest):
                 "score": float(score)
             })
 
-        # =================================================
-        # ANALYZE TOPICS
-        # =================================================
-
         topic_scores = analyze_topics(history)
 
-        topic_avg = calculate_topic_performance(
-            topic_scores
-        )
+        topic_avg = calculate_topic_performance(topic_scores)
 
         if not topic_avg:
             raise HTTPException(
@@ -720,15 +536,7 @@ def next_question(req: AdaptiveQuestionRequest):
                 detail="Unable to analyze topic performance"
             )
 
-        # =================================================
-        # PAGERANK
-        # =================================================
-
         pagerank = pagerank_topics(topic_avg)
-
-        # =================================================
-        # FIND WEAKEST TOPIC
-        # =================================================
 
         weakest_topic = min(
             topic_avg,
@@ -740,29 +548,12 @@ def next_question(req: AdaptiveQuestionRequest):
         logging.info(
             "========== ADAPTIVE ANALYSIS =========="
         )
-
-        logging.info(
-            "Topic scores: %s",
-            topic_avg
-        )
-
-        logging.info(
-            "Weakest topic: %s",
-            weakest_topic
-        )
-
-        logging.info(
-            "Weakest score: %s",
-            weakest_score
-        )
-
+        logging.info("Topic scores: %s", topic_avg)
+        logging.info("Weakest topic: %s", weakest_topic)
+        logging.info("Weakest score: %s", weakest_score)
         logging.info(
             "======================================="
         )
-
-        # =================================================
-        # GENERATE NEXT QUESTION
-        # =================================================
 
         generated = generate_question(
             role=req.role,
@@ -773,48 +564,26 @@ def next_question(req: AdaptiveQuestionRequest):
             category=req.category
         )
 
-        # =================================================
-        # RESPONSE
-        # =================================================
-
         return {
             "success": True,
-
             "nextQuestion": {
-                "question": generated.get(
-                    "question",
-                    ""
-                ),
-
+                "question": generated.get("question", ""),
                 "expected_answer": generated.get(
-                    "expected_answer",
-                    ""
+                    "expected_answer", ""
                 ),
-
                 "difficulty": generated.get(
-                    "difficulty",
-                    "Medium"
+                    "difficulty", "Medium"
                 ),
-
                 "topic": generated.get(
-                    "topic",
-                    weakest_topic
+                    "topic", weakest_topic
                 ),
-
                 "company": generated.get(
-                    "company",
-                    req.company or "General"
+                    "company", req.company or "General"
                 ),
-
-                "role": generated.get(
-                    "role",
-                    req.role
-                ),
-
+                "role": generated.get("role", req.role),
                 "question_type": req.question_type,
                 "category": req.category
             },
-
             "topic_scores": topic_avg,
             "pagerank": pagerank,
             "weakest_topic": weakest_topic,
@@ -826,7 +595,6 @@ def next_question(req: AdaptiveQuestionRequest):
         raise
 
     except Exception as e:
-
         logging.error(
             "Adaptive question generation failed:\n%s",
             traceback.format_exc()
@@ -836,11 +604,21 @@ def next_question(req: AdaptiveQuestionRequest):
             status_code=500,
             detail=str(e)
         )
- 
+
+
+# =========================================================
+# AUDIO TRANSCRIPTION
+# =========================================================
+
 @app.post("/transcribe-audio")
 async def transcribe_audio_endpoint(audio: UploadFile = File(...)):
+    from audio_transcription import transcribe_audio
+
     if not audio.filename:
-        raise HTTPException(status_code=400, detail="No audio file provided.")
+        raise HTTPException(
+            status_code=400,
+            detail="No audio file provided."
+        )
 
     suffix = os.path.splitext(audio.filename)[1] or ".webm"
     temp_path = None
@@ -862,17 +640,20 @@ async def transcribe_audio_endpoint(audio: UploadFile = File(...)):
 
         transcript = transcribe_audio(temp_path)
 
-        return {"transcript": transcript}
+        return {
+            "transcript": transcript
+        }
 
     except HTTPException:
         raise
+
     except Exception as error:
         print("AUDIO TRANSCRIPTION ERROR:", error)
         raise HTTPException(
             status_code=500,
             detail="Failed to transcribe audio."
         )
+
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
-   
