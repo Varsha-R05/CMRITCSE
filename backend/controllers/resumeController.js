@@ -1,7 +1,7 @@
 import axios from "axios";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 
-const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || "http://localhost:8000";
+const PYTHON_BACKEND_URL = process.env.AI_API_URL  || "http://localhost:8000";
 
 // =====================
 // Generate Job Description
