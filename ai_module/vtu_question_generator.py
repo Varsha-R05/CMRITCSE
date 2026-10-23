@@ -185,7 +185,7 @@ def generate_vtu_question(subject, module, topic):
     )
 
     raw = ask_llama(
-        prompt, max_tokens=350, response_format="json"
+        prompt, max_tokens=800, response_format="json"
     )
 
     if not raw:

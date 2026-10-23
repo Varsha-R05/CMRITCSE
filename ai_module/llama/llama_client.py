@@ -62,23 +62,20 @@ def ask_llama(
             "seconds",
         )
 
-        print("OLLAMA RESPONSE KEYS:", list(response.keys()))
-        print("Prompt tokens:", response.get("prompt_eval_count", 0))
-        print("Generated tokens:", response.get("eval_count", 0))
+        print("Prompt tokens:", getattr(response, "prompt_eval_count", 0))
+        print("Generated tokens:", getattr(response, "eval_count", 0))
 
-        message = response.get("message") or {}
+        message = response.message
+        content = message.content or ""
+        thinking = getattr(message, "thinking", "") or ""
 
-        content = message.get("content") or ""
-        thinking = message.get("thinking") or ""
-
-        print("MESSAGE KEYS:", list(message.keys()))
-        print("Ollama finish reason:", message.get("done_reason", "unknown"))
+        print("Ollama finish reason:", getattr(response, "done_reason", "unknown"))
         print("Content length:", len(content))
         print("Thinking length:", len(thinking))
         print("Content preview:", repr(content[:500]))
         print("Thinking preview:", repr(thinking[:500]))
 
-        if not isinstance(content, str) or not content.strip():
+        if not content.strip():
             print("OLLAMA CLOUD ERROR: No final answer in content")
             return None
 
