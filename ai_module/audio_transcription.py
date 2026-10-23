@@ -1,34 +1,24 @@
 
 from faster_whisper import WhisperModel
 
-_model = None
-
-
-def get_model():
-    global _model
-
-    if _model is None:
-        _model = WhisperModel(
-            "base",
-            device="cpu",
-            compute_type="int8"
-        )
-
-    return _model
+# Load the model once when this module is imported.
+# CPU with int8 quantization is suitable for your AMD Ryzen laptop.
+model = WhisperModel(
+    "base",
+    device="cpu",
+    compute_type="int8"
+)
 
 
 def transcribe_audio(audio_path: str) -> str:
-    model = get_model()
-
     segments, info = model.transcribe(
         audio_path,
-        beam_size=1,
+        beam_size=5,
         vad_filter=True
     )
 
     transcript = " ".join(
-        segment.text.strip()
-        for segment in segments
+        segment.text.strip() for segment in segments
     ).strip()
 
     return transcript

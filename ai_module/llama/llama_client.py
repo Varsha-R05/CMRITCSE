@@ -1,28 +1,37 @@
-
 import os
 import time
 from typing import Optional
 
 import ollama
+from dotenv import load_dotenv
+
+load_dotenv()
 
 MODEL_NAME = os.getenv("OLLAMA_MODEL", "gpt-oss:20b")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
+
+if not OLLAMA_API_KEY:
+    print("WARNING: OLLAMA_API_KEY is not configured")
 
 ollama_client = ollama.Client(
     host="https://ollama.com",
     headers={
         "Authorization": f"Bearer {OLLAMA_API_KEY}"
-    },
+    } if OLLAMA_API_KEY else {},
 )
 
 
 def ask_llama(
     prompt: str,
-    max_tokens: int = 200,
+    max_tokens: int = 800,
     temperature: float = 0.5,
     response_format: Optional[str] = "json",
 ):
     try:
+        if not OLLAMA_API_KEY:
+            print("OLLAMA CLOUD ERROR: OLLAMA_API_KEY is missing")
+            return None
+
         start_time = time.perf_counter()
 
         chat_options = {
@@ -30,6 +39,7 @@ def ask_llama(
             "messages": [
                 {"role": "user", "content": prompt}
             ],
+            "think": "low",
             "options": {
                 "temperature": temperature,
                 "top_p": 0.9,
@@ -43,14 +53,33 @@ def ask_llama(
 
         response = ollama_client.chat(**chat_options)
 
-        total_time = time.perf_counter() - start_time
-
-        print("Ollama Cloud request duration:",
-              round(total_time, 2), "seconds")
+        print(
+            "Ollama Cloud request duration:",
+            round(time.perf_counter() - start_time, 2),
+            "seconds",
+        )
         print("Prompt tokens:", response.get("prompt_eval_count", 0))
         print("Generated tokens:", response.get("eval_count", 0))
 
-        return response["message"]["content"]
+        message = response.get("message") or {}
+
+        content = message.get("content") or ""
+        thinking = message.get("thinking") or ""
+
+        print(
+            "Ollama finish reason:",
+            message.get("done_reason", "unknown"),
+        )
+        print("Content length:", len(content))
+        print("Thinking length:", len(thinking))
+        print("Content preview:", repr(content[:300]))
+        print("Thinking preview:", repr(thinking[:300]))
+
+        if not isinstance(content, str) or not content.strip():
+            print("OLLAMA CLOUD ERROR: No final answer in content")
+            return None
+
+        return content.strip()
 
     except Exception as error:
         print("OLLAMA CLOUD ERROR:", str(error))
