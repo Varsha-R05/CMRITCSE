@@ -21,7 +21,7 @@ STOPWORDS = {
 }
 
 MAX_ATTEMPTS = 3
-NUM_PREDICT = 200
+NUM_PREDICT = 500
 
 
 # =========================================================
@@ -718,13 +718,14 @@ def parse_question_response(response):
 # =========================================================
 # LLM CALL
 # =========================================================
-
 def call_llm(prompt, temperature):
-    try:
-        return ask_llama(prompt, NUM_PREDICT, temperature=temperature)
-    except TypeError:
-        print("WARNING: ask_llama has no temperature parameter.")
-        return ask_llama(prompt, NUM_PREDICT)
+    return ask_llama(
+        prompt,
+        max_tokens=NUM_PREDICT,
+        temperature=temperature,
+        response_format="json",
+    )
+
 
 
 # =========================================================

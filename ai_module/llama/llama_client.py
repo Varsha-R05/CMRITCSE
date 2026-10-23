@@ -37,9 +37,11 @@ def ask_llama(
         chat_options = {
             "model": MODEL_NAME,
             "messages": [
-                {"role": "user", "content": prompt}
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
             ],
-            "think": "low",
             "options": {
                 "temperature": temperature,
                 "top_p": 0.9,
@@ -48,6 +50,7 @@ def ask_llama(
             },
         }
 
+        # Keep JSON format support, but allow normal text if disabled.
         if response_format:
             chat_options["format"] = response_format
 
@@ -58,6 +61,8 @@ def ask_llama(
             round(time.perf_counter() - start_time, 2),
             "seconds",
         )
+
+        print("OLLAMA RESPONSE KEYS:", list(response.keys()))
         print("Prompt tokens:", response.get("prompt_eval_count", 0))
         print("Generated tokens:", response.get("eval_count", 0))
 
@@ -66,14 +71,12 @@ def ask_llama(
         content = message.get("content") or ""
         thinking = message.get("thinking") or ""
 
-        print(
-            "Ollama finish reason:",
-            message.get("done_reason", "unknown"),
-        )
+        print("MESSAGE KEYS:", list(message.keys()))
+        print("Ollama finish reason:", message.get("done_reason", "unknown"))
         print("Content length:", len(content))
         print("Thinking length:", len(thinking))
-        print("Content preview:", repr(content[:300]))
-        print("Thinking preview:", repr(thinking[:300]))
+        print("Content preview:", repr(content[:500]))
+        print("Thinking preview:", repr(thinking[:500]))
 
         if not isinstance(content, str) or not content.strip():
             print("OLLAMA CLOUD ERROR: No final answer in content")
@@ -82,5 +85,5 @@ def ask_llama(
         return content.strip()
 
     except Exception as error:
-        print("OLLAMA CLOUD ERROR:", str(error))
+        print("OLLAMA CLOUD ERROR:", repr(error))
         return None

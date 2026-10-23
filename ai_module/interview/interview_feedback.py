@@ -170,7 +170,12 @@ def generate_interview_report(
 
 
 
-        llm_response = ask_llama(prompt, 300)
+        llm_response = ask_llama(
+            prompt,
+            max_tokens=800,
+            temperature=0.3,
+            response_format="json",
+        )
 
         # =====================================================
         # DEFAULT FEEDBACK
