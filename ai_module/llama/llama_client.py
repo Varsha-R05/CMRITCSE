@@ -71,6 +71,9 @@ def ask_llama(
         # Do not treat internal reasoning as the final answer.
         if not content.strip():
             print("OLLAMA CLOUD ERROR: Final content is empty")
+            print("Thinking length:", len(thinking))
+            print("Generated tokens:", getattr(response, "eval_count", 0))
+            print("Finish reason:", getattr(response, "done_reason", "unknown"))
             return None
 
         return content.strip()
