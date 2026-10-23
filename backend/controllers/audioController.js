@@ -1,7 +1,11 @@
 import axios from "axios";
 import FormData from "form-data";
 
-const AI_API = process.env.AI_API_URL || "http://localhost:8000";
+const AI_API = (
+  process.env.AI_API_URL || "http://localhost:8000"
+).replace(/\/+$/, "");
+
+const TRANSCRIBE_URL = `${AI_API}/transcribe-audio`;
 
 export const transcribeAudio = async (req, res) => {
   try {
@@ -18,8 +22,10 @@ export const transcribeAudio = async (req, res) => {
       contentType: req.file.mimetype || "audio/webm",
     });
 
+    console.log("Calling audio transcription API:", TRANSCRIBE_URL);
+
     const response = await axios.post(
-      `${AI_API}/transcribe-audio`,
+      TRANSCRIBE_URL,
       formData,
       {
         headers: formData.getHeaders(),
@@ -37,7 +43,7 @@ export const transcribeAudio = async (req, res) => {
       error.response?.data || error.message
     );
 
-    return res.status(500).json({
+    return res.status(error.response?.status || 500).json({
       message: "Audio transcription failed.",
     });
   }
