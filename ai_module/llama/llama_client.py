@@ -1,4 +1,3 @@
-
 import os
 import time
 from typing import Optional
@@ -17,13 +16,14 @@ if not OLLAMA_API_KEY:
 ollama_client = ollama.Client(
     host="https://ollama.com",
     headers={"Authorization": f"Bearer {OLLAMA_API_KEY}"}
-    if OLLAMA_API_KEY else {},
+    if OLLAMA_API_KEY
+    else {},
 )
 
 
 def ask_llama(
     prompt: str,
-    max_tokens: int = 800,
+    max_tokens: int = 2048,  # Increased default to allow space for thinking + content
     temperature: float = 0.5,
     response_format: Optional[str] = "json",
 ):
@@ -68,7 +68,11 @@ def ask_llama(
         print("Content preview:", repr(content[:500]))
         print("Thinking preview:", repr(thinking[:500]))
 
-        # Do not treat internal reasoning as the final answer.
+        # Fallback: If final content is empty but the model output thinking/reasoning text, use it.
+        if not content.strip() and thinking.strip():
+            print("INFO: Content was empty; falling back to thinking content.")
+            content = thinking
+
         if not content.strip():
             print("OLLAMA CLOUD ERROR: Final content is empty")
             print("Thinking length:", len(thinking))
