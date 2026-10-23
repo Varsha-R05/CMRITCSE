@@ -1064,11 +1064,16 @@ def generate_question(
             finally:
                 llm_time += time.perf_counter() - llm_start
 
+            
             if not response:
-                print("Empty LLM response")
+                print(
+                    f"LLM returned an empty response on attempt "
+                    f"{attempt + 1}. Check llama_client logs."
+                )
                 continue
 
-            print("Raw response:", response)
+            print("Raw response:", repr(response))
+
 
             candidate_question, candidate_answer = (
                 parse_question_response(response)
@@ -1098,8 +1103,14 @@ def generate_question(
             expected_answer = candidate_answer
             break
 
+     
+        
         except Exception as error:
-            print(f"Generation attempt {attempt + 1} failed:", error)
+            print(
+                f"Generation attempt {attempt + 1} failed: "
+                f"{type(error).__name__}: {error!r}"
+            )
+
 
         finally:
             attempt_time += time.perf_counter() - attempt_start
