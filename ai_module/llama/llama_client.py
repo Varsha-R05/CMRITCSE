@@ -1,3 +1,4 @@
+
 import os
 import time
 from typing import Optional
@@ -15,9 +16,8 @@ if not OLLAMA_API_KEY:
 
 ollama_client = ollama.Client(
     host="https://ollama.com",
-    headers={
-        "Authorization": f"Bearer {OLLAMA_API_KEY}"
-    } if OLLAMA_API_KEY else {},
+    headers={"Authorization": f"Bearer {OLLAMA_API_KEY}"}
+    if OLLAMA_API_KEY else {},
 )
 
 
@@ -36,12 +36,7 @@ def ask_llama(
 
         chat_options = {
             "model": MODEL_NAME,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "options": {
                 "temperature": temperature,
                 "top_p": 0.9,
@@ -50,7 +45,6 @@ def ask_llama(
             },
         }
 
-        # Keep JSON format support, but allow normal text if disabled.
         if response_format:
             chat_options["format"] = response_format
 
@@ -62,21 +56,21 @@ def ask_llama(
             "seconds",
         )
 
+        message = response.message
+        content = getattr(message, "content", None) or ""
+        thinking = getattr(message, "thinking", None) or ""
+
+        print("Response type:", type(response).__name__)
         print("Prompt tokens:", getattr(response, "prompt_eval_count", 0))
         print("Generated tokens:", getattr(response, "eval_count", 0))
-
-        message = response.message
-        content = message.content or ""
-        thinking = getattr(message, "thinking", "") or ""
-
-        print("Ollama finish reason:", getattr(response, "done_reason", "unknown"))
-        print("Content length:", len(content))
-        print("Thinking length:", len(thinking))
+        print("Finish reason:", getattr(response, "done_reason", "unknown"))
+        print("Full response:", repr(response))
         print("Content preview:", repr(content[:500]))
         print("Thinking preview:", repr(thinking[:500]))
 
+        # Do not treat internal reasoning as the final answer.
         if not content.strip():
-            print("OLLAMA CLOUD ERROR: No final answer in content")
+            print("OLLAMA CLOUD ERROR: Final content is empty")
             return None
 
         return content.strip()
