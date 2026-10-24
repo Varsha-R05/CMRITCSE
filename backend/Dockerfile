@@ -3,11 +3,11 @@ FROM node:22-slim
 WORKDIR /app
 
 # Install programming language runtimes and compilers
-RUN apt-get update && apt-get install -y --no-install-recommends 
-    python3 
-    default-jdk 
-    gcc 
-    g++ 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    default-jdk \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js dependencies
