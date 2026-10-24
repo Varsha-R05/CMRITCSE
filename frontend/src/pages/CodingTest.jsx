@@ -363,88 +363,59 @@ export default function CodingTest() {
    * END TEST
    * ==========================================================
    */
-  const handleConfirmEndTest = async () => {
-    setShowConfirmModal(false);
+  
+const handleConfirmEndTest = async () => {
+  setShowConfirmModal(false);
 
-    const totalQuestions = questions.length;
+  const totalQuestions = questions.length;
 
-    const attemptedCount =
-      Object.values(attemptedMap).filter(Boolean).length;
+  // Count questions with non-empty code as attempted.
+  const attemptedCount = questions.filter((question) => {
+    const questionCode = codeMap[question.id] || "";
+    return questionCode.trim().length > 0;
+  }).length;
 
-    const backendScores = questions
-      .map((q) => submissionResults[q.id])
-      .filter(Boolean)
-      .map((result) => Number(result.score || 0));
+  // Each question contributes its score out of 100.
+  // Unsubmitted questions contribute zero.
+  const totalScore = questions.reduce((sum, question) => {
+    const result = submissionResults[question.id];
+    const questionScore = result
+      ? Math.max(0, Math.min(100, Number(result.score) || 0))
+      : 0;
 
-    let finalScore = 0;
+    return sum + questionScore;
+  }, 0);
 
-    const latestResult =
-      Object.values(submissionResults).find(
-        (result) =>
-          result?.attemptId === attemptId
+  const finalScore =
+    totalQuestions > 0
+      ? Math.round(totalScore / totalQuestions)
+      : 0;
+
+  // Finalize the attempt in the backend.
+  if (attemptId) {
+    try {
+      await codingAPI.endTest({
+        candidateId: 1,
+        attemptId,
+      });
+    } catch (err) {
+      console.error(
+        "Failed to sync final test score to backend:",
+        err
       );
-
-    const divisor = backendScores.length > 0 ? backendScores.length : totalQuestions;
-
-    if (
-      latestResult &&
-      latestResult.attemptScore !== undefined
-    ) {
-      finalScore = Number(
-        latestResult.attemptScore
-      );
-    } else if (
-      latestResult &&
-      latestResult.overallScore !== undefined
-    ) {
-      finalScore = Number(
-        latestResult.overallScore
-      );
-    } else if (attemptId) {
-      if (backendScores.length > 0) {
-        finalScore =
-          backendScores.reduce(
-            (sum, score) => sum + score,
-            0
-          ) / divisor;
-      }
-    } else {
-      if (backendScores.length > 0) {
-        finalScore =
-          backendScores.reduce(
-            (sum, score) => sum + score,
-            0
-          ) / divisor;
-      }
     }
+  }
 
-    finalScore = Math.round(
-      Number(finalScore) || 0
-    );
+  setTestSummary({
+    attemptedCount,
+    totalQuestions,
+    score: `${finalScore} / 100`,
+    attemptId,
+  });
 
-    // SYNC FINAL SCORE TO BACKEND DATABASE
-    if (attemptId) {
-      try {
-        await codingAPI.endTest({
-          candidateId: 1,
-          attemptId: attemptId,
-        });
-      } catch (err) {
-        console.error("Failed to sync final test score to backend:", err);
-      }
-    }
+  localStorage.removeItem("candidate_code_drafts_1");
+};
 
-    setTestSummary({
-      attemptedCount,
-      totalQuestions,
-      score: `${finalScore} / 100`,
-      attemptId,
-    });
-
-    localStorage.removeItem(
-      "candidate_code_drafts_1"
-    );
-  };
 
   /*
    * ==========================================================
