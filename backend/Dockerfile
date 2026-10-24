@@ -2,7 +2,7 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Install Python, Java, C, and C++ compilers
+# Install programming language runtimes and compilers
 RUN apt-get update && apt-get install -y --no-install-recommends 
     python3 
     default-jdk 
@@ -10,12 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends
     g++ 
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files and install dependencies
+# Install Node.js dependencies
 COPY package*.json ./
-
 RUN npm ci --omit=dev
 
-# Copy backend source code
+# Copy application files
 COPY . .
 
 ENV NODE_ENV=production
