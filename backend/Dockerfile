@@ -2,7 +2,7 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Install language runtimes and compilers
+# Install Python, Java, C, and C++ compilers
 RUN apt-get update && apt-get install -y --no-install-recommends 
     python3 
     default-jdk 
@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends
     g++ 
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js backend dependencies
+# Copy package files and install dependencies
 COPY package*.json ./
+
 RUN npm ci --omit=dev
 
 # Copy backend source code
